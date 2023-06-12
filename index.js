@@ -8,6 +8,8 @@ var visitedLinks = {};
 var linkQueue = [];
 var fileQueue = [];
 
+var sessionid
+
 const argv = yargs(process.argv.slice(2))
 .option("time", {
     alias: "t",
@@ -44,7 +46,12 @@ function readAndWrite(body,file, filename){
     writeStream.end();    
 }
 
-setTimeout(webCrawler,waitTime*1000)
+function stopCrawler(){
+  request(`http://localhost:8000/session_stop`,(err,res)=>{
+          const data = JSON.parse(res.body)
+          console.log('crawler stopped with session id '+data.sid)
+    })
+}
 
 function webCrawler(){
     if(linkQueue.length != 0){
@@ -83,6 +90,9 @@ function webCrawler(){
         setTimeout(webCrawler,waitTime*1000)
       }
     }
+    else{
+      stopCrawler()
+    }
   }
 
 
@@ -107,7 +117,7 @@ const Parser = setInterval(function(){
 
                 for(let i=0; result && i<result.length; i++){
                     const parsedLink = {
-                      url:result[i].replaceAll(/'|\\n|\\|,|"/g,""),
+                      url:result[i].replaceAll(/'|\\n|\\|,|"/g,"")+`?sid=${sessionid}`,
                       depth: depth+1
                     }
                     linkQueue.push(parsedLink)  
@@ -139,7 +149,8 @@ function saveState(){
   })
 }
 
-function loadState(){
+function loadState(id){
+  sessionid = id
   fs.readFile("data.txt",'utf-8',(err,data) => {
     if(err){
       throw err
@@ -147,7 +158,7 @@ function loadState(){
     
     if(argv.force || data.length == 0){
       const seed={
-        url: 'http://stevescooking.blogspot.com/',
+        url: 'https://pankajnamotra.com/'+`?sid=${sessionid}`,
         depth: 0
       }
       linkQueue.push(seed)
@@ -159,7 +170,11 @@ function loadState(){
       linkQueue = saved.linkQueue
     }
   })
+  setTimeout(webCrawler,waitTime*1000)
 }
 
-loadState()
+module.exports = {
+  loadState
+}
+
 
