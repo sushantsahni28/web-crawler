@@ -1,7 +1,6 @@
 const request = require('request')
 const fs = require('fs')
 const path = require('path')
-const http = require('http');
 const yargs = require('yargs');
 const { clearInterval } = require('timers');
 
@@ -12,7 +11,11 @@ var fileQueue = [];
 const argv = yargs(process.argv.slice(2))
 .option("time", {
     alias: "t",
-    describe: "Time after which request is made"
+    describe: "Time for max no. of requests(in sec)(1 min = 60)"
+  })
+  .option("maxreq",{
+    alias: "m",
+    describe: "Max requests in given time"
   })
   .option("depth", {
     alias: "d",
@@ -23,9 +26,10 @@ const argv = yargs(process.argv.slice(2))
     describe: "Force restart"
   })
   .demandOption(["time"], "Please specify the time")
+  .demandOption(["maxreq"], "Please specify max requests")
   .demandOption(["depth"], "please specify the depth").argv
 
-const userWaitTime = argv.time
+const userWaitTime = argv.time/argv.maxreq
 const maxDepth = argv.depth
 const force = argv.force
 var waitTime = 1
