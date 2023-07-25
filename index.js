@@ -3,7 +3,8 @@ const fs = require('fs')
 const path = require('path')
 const axios = require('axios')
 const { clearInterval } = require('timers');
-const { argv } = require('./commandLine');
+const { argv } = require('./services/commandLine');
+const db = require('./models/sql.model');
 
 var visitedLinks = {};
 var linkQueue = [];
@@ -64,15 +65,17 @@ function getUniqueLinks(){
       }
       return urls
     }
-
+    
     for(let i=0; i<linkQueue.length && count < 5;){
         let {url , depth} = linkQueue[i]
-
         let regexhost = /https?:\/\/[^\s]+\//
         let result = url.match(regexhost)
         
         if(argv.seed){
-          if(visitedLinks[url]) continue
+          if(visitedLinks[url]){
+            linkQueue.splice(i, 1)
+            continue
+          }
         }
 
         if(!result){
@@ -83,7 +86,6 @@ function getUniqueLinks(){
 
         if(!domains.includes(result[0])){
             domains.push(result[0])
-            
             let item = {
               url, depth
             }
@@ -96,14 +98,14 @@ function getUniqueLinks(){
         }else{
           i++;
         }   
-    } 
+    }
     saveState()
     return urls
 }
 //.................visiting links................................
 function webCrawler(){
     const urls = getUniqueLinks()
-
+   
     const requests = []
     const depths = []
 
@@ -167,6 +169,7 @@ const Parser = setInterval(function(){
           stream.on("data", function(data){
             var chunk = data.toString()
             let arr = chunk.split(">")
+            
             let regexHttp = /https?:\/\/[^\s]+/
             let regexsimple = /\/[^\s]+/
 
@@ -174,6 +177,7 @@ const Parser = setInterval(function(){
               if(item.includes("href")){
                   if(item.match(regexHttp)){
                   let result = item.match(regexHttp)
+                
                   for(let i=0; result && i<result.length; i++){
                     const parsedLink = {
                       url:result[i].replaceAll(/'|\\n|\\|,|"/g,""),
@@ -185,8 +189,9 @@ const Parser = setInterval(function(){
                 else if(item.match(regexsimple)){
                     let otherres = item.match(regexsimple)
                     for(let i=0; otherres && i<otherres.length; i++){
+                      const extlinked = otherres[i].replaceAll(/"/g,"")
                       const parsedLink = {
-                      url:parentlink+otherres[i].replaceAll(/"|\//g,""),
+                      url:parentlink+extlinked.replace(/\//,""),
                       depth: depth+1
                     }
                     linkQueue.push(parsedLink) 
@@ -337,3 +342,11 @@ function start(){
 start()
 
 
+db.connect(function(err) {
+  if (err) {
+    console.error('error connecting sql');
+    return;
+  }
+ 
+  console.log('connected to sql');
+});
